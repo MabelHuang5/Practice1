@@ -73,9 +73,9 @@ else:
     else:
         df_year = df_year.sort_values(["Entered_Month", route_col])
 
-        # Assume monthly values already, no de-cumulation
-        df_year["Monthly Miles"] = df_year["Total Miles"]
-        df_year["Monthly Hours"] = df_year["Total Hours"]
+        # De-cumulate to monthly values
+        df_year["Monthly Miles"] = df_year.groupby(route_col)["Total Miles"].diff().fillna(df_year["Total Miles"])
+        df_year["Monthly Hours"] = df_year.groupby(route_col)["Total Hours"].diff().fillna(df_year["Total Hours"])
 
         # --- Line Chart: Monthly Miles ---
         miles_trend = df_year.groupby(["Entered_Month", route_col])["Monthly Miles"].sum().reset_index()
