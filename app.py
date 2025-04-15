@@ -4,7 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 st.title("\U0001F68C CityBus Dashboard - Yearly & Monthly Route Trends")
-st.markdown("Upload monthly data and select a year to view de-cumulated monthly trends by route.")
+st.markdown("Upload monthly data and select a year to view monthly trends by route.")
 
 # Initialize session state
 if "all_data" not in st.session_state:
@@ -47,7 +47,6 @@ df_all = st.session_state["all_data"]
 if df_all.empty:
     st.info("📭 Please upload data to begin.")
 else:
-    # Convert and sort months
     try:
         df_all["Entered_Month"] = pd.to_datetime(df_all["Entered_Month"], format="%B %Y")
     except:
@@ -55,14 +54,11 @@ else:
 
     df_all = df_all.sort_values("Entered_Month")
 
-    # YEAR SELECTOR
     available_years = sorted(df_all["Entered_Month"].dt.year.dropna().unique())
     selected_year = st.sidebar.selectbox("📅 Select Year to View", available_years)
 
-    # Filter for selected year
     df_year = df_all[df_all["Entered_Month"].dt.year == selected_year].copy()
 
-    # Detect route column
     route_col = None
     for col in ["Route", "RouteCode", "RouteName"]:
         if col in df_year.columns:
@@ -75,10 +71,11 @@ else:
     if not route_col:
         st.error("⚠️ No route column found ('Route', 'RouteCode', or 'RouteName').")
     else:
-        # De-cumulate monthly values
         df_year = df_year.sort_values(["Entered_Month", route_col])
-        df_year["Monthly Miles"] = df_year.groupby(route_col)["Total Miles"].diff().fillna(df_year["Total Miles"])
-        df_year["Monthly Hours"] = df_year.groupby(route_col)["Total Hours"].diff().fillna(df_year["Total Hours"])
+
+        # Assume monthly values already, no de-cumulation
+        df_year["Monthly Miles"] = df_year["Total Miles"]
+        df_year["Monthly Hours"] = df_year["Total Hours"]
 
         # --- Line Chart: Monthly Miles ---
         miles_trend = df_year.groupby(["Entered_Month", route_col])["Monthly Miles"].sum().reset_index()
@@ -114,7 +111,7 @@ else:
 
         # Lollipop Top
         fig_top = go.Figure()
-        for i, row in top5_eff.iterrows():
+        for _, row in top5_eff.iterrows():
             fig_top.add_trace(go.Scatter(
                 x=[0, row["Efficiency"]],
                 y=[row[route_col]] * 2,
@@ -134,7 +131,7 @@ else:
 
         # Lollipop Bottom
         fig_bottom = go.Figure()
-        for i, row in bottom5_eff.iterrows():
+        for _, row in bottom5_eff.iterrows():
             fig_bottom.add_trace(go.Scatter(
                 x=[0, row["Efficiency"]],
                 y=[row[route_col]] * 2,
@@ -152,4 +149,4 @@ else:
         )
         st.plotly_chart(fig_bottom, use_container_width=True)
 
-        st.success(f"✅ Showing de-cumulated trends and efficiency charts for {selected_year}")
+        st.success(f"✅ Showing monthly trends and efficiency charts for {selected_year}")
