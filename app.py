@@ -48,18 +48,13 @@ df_all = st.session_state["all_data"]
 if df_all.empty:
     st.info("No data yet. Please upload CSVs using the sidebar.")
 else:
-    # 🔧 Fix month order
+    # 🔧 Convert Entered_Month to datetime and sort
     try:
         df_all["Entered_Month"] = pd.to_datetime(df_all["Entered_Month"], format="%B %Y")
     except:
         st.warning("⚠️ Could not parse 'Entered_Month'. Use format like 'February 2023'.")
 
-    # Sort by month for all charts
     df_all = df_all.sort_values("Entered_Month")
-
-    # Show preview
-    st.subheader("📋 Data Preview")
-    st.write(df_all[["Entered_Month"] + [col for col in ["Route", "RouteCode", "RouteName"] if col in df_all.columns] + ["Total Miles", "Total Hours"]].head())
 
     # Detect the best available route column
     route_col = None
@@ -68,29 +63,36 @@ else:
             route_col = col
             break
 
+    st.subheader("📋 Data Preview")
+    st.write(df_all[["Entered_Month"] + [route_col] + ["Total Miles", "Total Hours"]].head())
+
     if not route_col:
         st.error("⚠️ No 'Route', 'RouteCode', or 'RouteName' column found.")
     else:
-        # --- Visualization 1: Monthly Total Miles ---
+        # --- Visualization 1: Monthly Total Miles by Route ---
+        miles_by_month = df_all.groupby(["Entered_Month", route_col])["Total Miles"].sum().reset_index()
         fig1 = px.line(
-            df_all.groupby(["Entered_Month", route_col])["Total Miles"].sum().reset_index(),
+            miles_by_month,
             x="Entered_Month",
             y="Total Miles",
             color=route_col,
             title="📈 Monthly Total Miles by Route",
             markers=True
         )
+        fig1.update_layout(xaxis=dict(type="date"))  # 👉 Ensure chronological month order
         st.plotly_chart(fig1, use_container_width=True)
 
-        # --- Visualization 2: Monthly Total Hours ---
+        # --- Visualization 2: Monthly Total Hours by Route ---
+        hours_by_month = df_all.groupby(["Entered_Month", route_col])["Total Hours"].sum().reset_index()
         fig2 = px.line(
-            df_all.groupby(["Entered_Month", route_col])["Total Hours"].sum().reset_index(),
+            hours_by_month,
             x="Entered_Month",
             y="Total Hours",
             color=route_col,
             title="📉 Monthly Total Hours by Route",
             markers=True
         )
+        fig2.update_layout(xaxis=dict(type="date"))  # 👉 Ensure chronological month order
         st.plotly_chart(fig2, use_container_width=True)
 
         # --- Top & Bottom 5 Total Miles ---
@@ -118,5 +120,3 @@ else:
         st.plotly_chart(fig6, use_container_width=True)
 
         st.success("✅ Dashboard loaded with time-sorted trends.")
-
-
