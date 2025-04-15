@@ -2,21 +2,21 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# Title and intro
-st.title("🚌 CityBus Dashboard")
-st.markdown("Upload monthly CSV data to visualize route efficiency, revenue, and transit trends.")
+# Title
+st.title("🚌 CityBus Dashboard - Route Trends")
+st.markdown("Upload monthly city bus data and visualize route performance over time.")
 
-# Session state to store all uploaded data
+# Session state for data
 if "all_data" not in st.session_state:
     st.session_state["all_data"] = pd.DataFrame()
 
-# File uploader and month input
+# Sidebar: File upload
 st.sidebar.header("📁 Upload Monthly Data")
-uploaded_files = st.sidebar.file_uploader("Upload one or more CSV files", type=["csv"], accept_multiple_files=True)
+uploaded_files = st.sidebar.file_uploader("Upload CSV(s)", type=["csv"], accept_multiple_files=True)
 month_input = st.sidebar.text_input("Enter Month (e.g., February 2023)")
 
-# Data processing function
-def process_uploaded_file(file, entered_month):
+# Helper to clean and prepare CSVs
+def process_file(file, entered_month):
     df = pd.read_csv(file)
     df.columns = df.columns.str.strip()
 
@@ -29,92 +29,95 @@ def process_uploaded_file(file, entered_month):
     df["Entered_Month"] = entered_month
     return df
 
-# Add data button
+# Add data
 if st.sidebar.button("Add Data"):
     if uploaded_files and month_input:
         for file in uploaded_files:
-            new_df = process_uploaded_file(file, month_input)
+            new_df = process_file(file, month_input)
             st.session_state["all_data"] = pd.concat([st.session_state["all_data"], new_df], ignore_index=True)
         st.sidebar.success("✅ Data added!")
     else:
-        st.sidebar.warning("⚠️ Please upload a CSV file and enter a month.")
+        st.sidebar.warning("⚠️ Upload a file and enter a month.")
 
-# Clear all data button
+# Clear data
 if st.sidebar.button("Clear All Data"):
     st.session_state["all_data"] = pd.DataFrame()
-    st.sidebar.success("🗑️ All data cleared.")
+    st.sidebar.success("🗑️ Data cleared.")
 
-# MAIN DASHBOARD SECTION
 df_all = st.session_state["all_data"]
 
 if df_all.empty:
-    st.info("Upload your first dataset using the sidebar.")
+    st.info("No data yet. Upload a file to begin.")
 else:
-    st.subheader("📋 Data Preview")
+    st.subheader("📊 Data Preview")
     st.write(df_all.head())
 
-    # --- Visualization 1: Total Passengers per Route ---
-    fig1 = px.bar(
-        df_all.groupby("RouteName")["Passengers"].sum().reset_index(),
-        x="Passengers",
-        y="RouteName",
-        orientation="h",
+    # --- Visualization 1: Total Passengers per Route (Scatter) ---
+    fig1 = px.scatter(
+        df_all.groupby("Route")["Passengers"].sum().reset_index(),
+        x="Route",
+        y="Passengers",
         title="Total Passengers per Route",
-        labels={"Passengers": "Passengers", "RouteName": "Route"}
+        labels={"Passengers": "Total Passengers", "Route": "Route #"},
+        size="Passengers",
+        color="Route"
     )
     st.plotly_chart(fig1, use_container_width=True)
 
-    # --- Visualization 2: Revenue per Route ---
-    fig2 = px.bar(
-        df_all.groupby("RouteName")["Revenue"].sum().reset_index(),
-        x="Revenue",
-        y="RouteName",
-        orientation="h",
+    # --- Visualization 2: Total Revenue per Route (Scatter) ---
+    fig2 = px.scatter(
+        df_all.groupby("Route")["Revenue"].sum().reset_index(),
+        x="Route",
+        y="Revenue",
         title="Total Revenue per Route",
-        labels={"Revenue": "Revenue ($)", "RouteName": "Route"},
-        color="Revenue"
+        labels={"Revenue": "Total Revenue ($)", "Route": "Route #"},
+        size="Revenue",
+        color="Route"
     )
     st.plotly_chart(fig2, use_container_width=True)
 
-    # --- Visualization 3: Monthly Total Miles by Route ---
+    # --- Visualization 3: Monthly Total Miles by Route (Line) ---
     if "Total Miles" in df_all.columns:
-        fig3 = px.bar(
-            df_all.groupby(["Entered_Month", "RouteName"])["Total Miles"].sum().reset_index(),
+        miles_df = df_all.groupby(["Entered_Month", "Route"])["Total Miles"].sum().reset_index()
+        fig3 = px.line(
+            miles_df,
             x="Entered_Month",
             y="Total Miles",
-            color="RouteName",
-            barmode="group",
-            title="Monthly Total Miles by Route"
+            color="Route",
+            title="Monthly Total Miles by Route",
+            markers=True
         )
         st.plotly_chart(fig3, use_container_width=True)
 
-    # --- Visualization 4: Monthly Total Hours by Route ---
+    # --- Visualization 4: Monthly Total Hours by Route (Line) ---
     if "Total Hours" in df_all.columns:
-        fig4 = px.bar(
-            df_all.groupby(["Entered_Month", "RouteName"])["Total Hours"].sum().reset_index(),
+        hours_df = df_all.groupby(["Entered_Month", "Route"])["Total Hours"].sum().reset_index()
+        fig4 = px.line(
+            hours_df,
             x="Entered_Month",
             y="Total Hours",
-            color="RouteName",
-            barmode="group",
-            title="Monthly Total Hours by Route"
+            color="Route",
+            title="Monthly Total Hours by Route",
+            markers=True
         )
         st.plotly_chart(fig4, use_container_width=True)
 
-    # --- Visualization 5: Efficiency (Miles per Hour) by Route ---
+    # --- Visualization 5: Efficiency - Miles per Hour by Route (Line) ---
     if "Total Miles" in df_all.columns and "Total Hours" in df_all.columns:
-        grouped = df_all.groupby(["Entered_Month", "RouteName"])[["Total Miles", "Total Hours"]].sum().reset_index()
-        grouped["Miles per Hour"] = grouped.apply(
+        eff_df = df_all.groupby(["Entered_Month", "Route"])[["Total Miles", "Total Hours"]].sum().reset_index()
+        eff_df["Miles per Hour"] = eff_df.apply(
             lambda row: row["Total Miles"] / row["Total Hours"] if row["Total Hours"] > 0 else 0,
             axis=1
         )
         fig5 = px.line(
-            grouped,
+            eff_df,
             x="Entered_Month",
             y="Miles per Hour",
-            color="RouteName",
+            color="Route",
             title="Efficiency: Miles per Hour by Route",
             markers=True
         )
         st.plotly_chart(fig5, use_container_width=True)
 
-    st.success("✅ Dashboard updated!")
+    st.success("✅ Dashboard updated with route-based trend analysis!")
+
