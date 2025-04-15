@@ -2,19 +2,20 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.title("🚌 CityBus Dashboard - Route Mileage & Hours")
-st.markdown("Upload monthly data and view total miles and total hours by route.")
+# Title
+st.title("🚌 CityBus Dashboard - Miles & Hours Tracker")
+st.markdown("Upload monthly data to explore route performance in terms of distance and duration.")
 
-# Store uploaded data
+# Initialize session state
 if "all_data" not in st.session_state:
     st.session_state["all_data"] = pd.DataFrame()
 
-# Sidebar: Upload
-st.sidebar.header("📁 Upload Monthly Data")
-uploaded_files = st.sidebar.file_uploader("Upload CSV(s)", type=["csv"], accept_multiple_files=True)
+# Sidebar
+st.sidebar.header("📁 Upload Monthly CSV Data")
+uploaded_files = st.sidebar.file_uploader("Upload one or more CSV files", type=["csv"], accept_multiple_files=True)
 month_input = st.sidebar.text_input("Enter Month (e.g., February 2023)")
 
-# Helper to process uploaded files
+# Helper function to clean & process uploaded files
 def process_file(file, entered_month):
     df = pd.read_csv(file)
     df.columns = df.columns.str.strip()
@@ -33,69 +34,79 @@ if st.sidebar.button("Add Data"):
         for file in uploaded_files:
             new_df = process_file(file, month_input)
             st.session_state["all_data"] = pd.concat([st.session_state["all_data"], new_df], ignore_index=True)
-        st.sidebar.success("✅ Data added!")
+        st.sidebar.success("✅ Data added successfully!")
     else:
-        st.sidebar.warning("⚠️ Upload a file and enter a month.")
+        st.sidebar.warning("⚠️ Please upload file(s) and enter a month.")
 
 # Clear Data
 if st.sidebar.button("Clear All Data"):
     st.session_state["all_data"] = pd.DataFrame()
-    st.sidebar.success("🗑️ Data cleared.")
+    st.sidebar.success("🗑️ All data cleared.")
 
-# Main dashboard logic
+# Use current data
 df_all = st.session_state["all_data"]
 
 if df_all.empty:
-    st.info("Please upload data to view charts.")
+    st.info("No data yet. Please upload CSVs using the sidebar.")
 else:
     st.subheader("📋 Data Preview")
-    st.write(df_all[["Entered_Month", "Route", "Total Miles", "Total Hours"]].head())
+    st.write(df_all[["Entered_Month"] + [col for col in ["Route", "RouteCode", "RouteName"] if col in df_all.columns] + ["Total Miles", "Total Hours"]].head())
 
-    # --- Visualization: Total Miles by Month and Route ---
-    fig1 = px.line(
-        df_all.groupby(["Entered_Month", "Route"])["Total Miles"].sum().reset_index(),
-        x="Entered_Month",
-        y="Total Miles",
-        color="Route",
-        title="📈 Total Miles by Month and Route",
-        markers=True
-    )
-    st.plotly_chart(fig1, use_container_width=True)
+    # Try to identify route column
+    route_col = None
+    for col in ["Route", "RouteCode", "RouteName"]:
+        if col in df_all.columns:
+            route_col = col
+            break
 
-    # --- Visualization: Total Hours by Month and Route ---
-    fig2 = px.line(
-        df_all.groupby(["Entered_Month", "Route"])["Total Hours"].sum().reset_index(),
-        x="Entered_Month",
-        y="Total Hours",
-        color="Route",
-        title="📉 Total Hours by Month and Route",
-        markers=True
-    )
-    st.plotly_chart(fig2, use_container_width=True)
+    if not route_col:
+        st.error("⚠️ No 'Route', 'RouteCode', or 'RouteName' column found in the data.")
+    else:
+        # --- Visualization 1: Monthly Total Miles ---
+        fig1 = px.line(
+            df_all.groupby(["Entered_Month", route_col])["Total Miles"].sum().reset_index(),
+            x="Entered_Month",
+            y="Total Miles",
+            color=route_col,
+            title="📈 Monthly Total Miles by Route",
+            markers=True
+        )
+        st.plotly_chart(fig1, use_container_width=True)
 
-    st.success("✅ Displaying Total Miles and Hours only.")
-# --- Top 5 and Bottom 5 Routes by Total Miles ---
-st.subheader("🏆 Top 5 and Bottom 5 Routes by Total Miles")
+        # --- Visualization 2: Monthly Total Hours ---
+        fig2 = px.line(
+            df_all.groupby(["Entered_Month", route_col])["Total Hours"].sum().reset_index(),
+            x="Entered_Month",
+            y="Total Hours",
+            color=route_col,
+            title="📉 Monthly Total Hours by Route",
+            markers=True
+        )
+        st.plotly_chart(fig2, use_container_width=True)
 
-miles_sum = df_all.groupby("Route")["Total Miles"].sum().reset_index().sort_values(by="Total Miles", ascending=False)
-top5_miles = miles_sum.head(5)
-bottom5_miles = miles_sum.tail(5)
+        # --- Visualization 3: Top/Bottom 5 Routes by Total Miles ---
+        st.subheader("🏆 Top 5 and Bottom 5 Routes by Total Miles")
+        miles_sum = df_all.groupby(route_col)["Total Miles"].sum().reset_index().sort_values(by="Total Miles", ascending=False)
+        top5_miles = miles_sum.head(5)
+        bottom5_miles = miles_sum.tail(5)
 
-fig3 = px.bar(top5_miles, x="Total Miles", y="Route", orientation="h", title="Top 5 Routes by Total Miles")
-fig4 = px.bar(bottom5_miles, x="Total Miles", y="Route", orientation="h", title="Bottom 5 Routes by Total Miles")
+        fig3 = px.bar(top5_miles, x="Total Miles", y=route_col, orientation="h", title="Top 5 Routes by Total Miles")
+        fig4 = px.bar(bottom5_miles, x="Total Miles", y=route_col, orientation="h", title="Bottom 5 Routes by Total Miles")
 
-st.plotly_chart(fig3, use_container_width=True)
-st.plotly_chart(fig4, use_container_width=True)
+        st.plotly_chart(fig3, use_container_width=True)
+        st.plotly_chart(fig4, use_container_width=True)
 
-# --- Top 5 and Bottom 5 Routes by Total Hours ---
-st.subheader("⏱️ Top 5 and Bottom 5 Routes by Total Hours")
+        # --- Visualization 4: Top/Bottom 5 Routes by Total Hours ---
+        st.subheader("⏱️ Top 5 and Bottom 5 Routes by Total Hours")
+        hours_sum = df_all.groupby(route_col)["Total Hours"].sum().reset_index().sort_values(by="Total Hours", ascending=False)
+        top5_hours = hours_sum.head(5)
+        bottom5_hours = hours_sum.tail(5)
 
-hours_sum = df_all.groupby("Route")["Total Hours"].sum().reset_index().sort_values(by="Total Hours", ascending=False)
-top5_hours = hours_sum.head(5)
-bottom5_hours = hours_sum.tail(5)
+        fig5 = px.bar(top5_hours, x="Total Hours", y=route_col, orientation="h", title="Top 5 Routes by Total Hours")
+        fig6 = px.bar(bottom5_hours, x="Total Hours", y=route_col, orientation="h", title="Bottom 5 Routes by Total Hours")
 
-fig5 = px.bar(top5_hours, x="Total Hours", y="Route", orientation="h", title="Top 5 Routes by Total Hours")
-fig6 = px.bar(bottom5_hours, x="Total Hours", y="Route", orientation="h", title="Bottom 5 Routes by Total Hours")
+        st.plotly_chart(fig5, use_container_width=True)
+        st.plotly_chart(fig6, use_container_width=True)
 
-st.plotly_chart(fig5, use_container_width=True)
-st.plotly_chart(fig6, use_container_width=True)
+        st.success("✅ Dashboard loaded successfully!")
+
