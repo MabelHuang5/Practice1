@@ -107,26 +107,36 @@ else:
         fig2.update_layout(xaxis=dict(type="date"))
         st.plotly_chart(fig2, use_container_width=True)
 
-        # --- Top & Bottom 5 Total Miles ---
-        st.subheader(f"🏆 Top 5 and Bottom 5 Routes by Total Miles ({selected_year})")
-        miles_rank = df_year.groupby(route_col)["Monthly Miles"].sum().reset_index().sort_values(by="Monthly Miles", ascending=False)
-        top5_miles = miles_rank.head(5)
-        bottom5_miles = miles_rank.tail(5)
+                # --- ✨ Efficiency: Miles per Hour ---
+        st.subheader(f"⚙️ Efficiency by Route: Miles per Hour ({selected_year})")
 
-        fig3 = px.bar(top5_miles, x="Monthly Miles", y=route_col, orientation="h", title="Top 5 Routes by Total Miles")
-        fig4 = px.bar(bottom5_miles, x="Monthly Miles", y=route_col, orientation="h", title="Bottom 5 Routes by Total Miles")
-        st.plotly_chart(fig3, use_container_width=True)
-        st.plotly_chart(fig4, use_container_width=True)
+        # Calculate efficiency per route
+        efficiency_df = df_year.groupby(route_col).agg({
+            "Monthly Miles": "sum",
+            "Monthly Hours": "sum"
+        }).reset_index()
 
-        # --- Top & Bottom 5 Total Hours ---
-        st.subheader(f"⏱️ Top 5 and Bottom 5 Routes by Total Hours ({selected_year})")
-        hours_rank = df_year.groupby(route_col)["Monthly Hours"].sum().reset_index().sort_values(by="Monthly Hours", ascending=False)
-        top5_hours = hours_rank.head(5)
-        bottom5_hours = hours_rank.tail(5)
+        efficiency_df["Efficiency"] = efficiency_df["Monthly Miles"] / efficiency_df["Monthly Hours"]
+        efficiency_df = efficiency_df.dropna(subset=["Efficiency"]).replace([float("inf"), -float("inf")], pd.NA).dropna()
 
-        fig5 = px.bar(top5_hours, x="Monthly Hours", y=route_col, orientation="h", title="Top 5 Routes by Total Hours")
-        fig6 = px.bar(bottom5_hours, x="Monthly Hours", y=route_col, orientation="h", title="Bottom 5 Routes by Total Hours")
-        st.plotly_chart(fig5, use_container_width=True)
-        st.plotly_chart(fig6, use_container_width=True)
+        top5_eff = efficiency_df.sort_values(by="Efficiency", ascending=False).head(5)
+        bottom5_eff = efficiency_df.sort_values(by="Efficiency", ascending=True).head(5)
 
-        st.success(f"✅ Showing de-cumulated trends for {selected_year}")
+        fig_eff_top = px.bar(
+            top5_eff,
+            x="Efficiency",
+            y=route_col,
+            orientation="h",
+            title="🏎️ Top 5 Most Efficient Routes (Miles per Hour)"
+        )
+
+        fig_eff_bottom = px.bar(
+            bottom5_eff,
+            x="Efficiency",
+            y=route_col,
+            orientation="h",
+            title="🐢 Bottom 5 Least Efficient Routes (Miles per Hour)"
+        )
+
+        st.plotly_chart(fig_eff_top, use_container_width=True)
+        st.plotly_chart(fig_eff_bottom, use_container_width=True)
