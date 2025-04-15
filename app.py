@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# Title
 st.title("🚌 CityBus Dashboard - Miles & Hours Tracker")
 st.markdown("Upload monthly data to explore route performance in terms of distance and duration.")
 
@@ -49,10 +48,20 @@ df_all = st.session_state["all_data"]
 if df_all.empty:
     st.info("No data yet. Please upload CSVs using the sidebar.")
 else:
+    # 🔧 Fix month order
+    try:
+        df_all["Entered_Month"] = pd.to_datetime(df_all["Entered_Month"], format="%B %Y")
+    except:
+        st.warning("⚠️ Could not parse 'Entered_Month'. Use format like 'February 2023'.")
+
+    # Sort by month for all charts
+    df_all = df_all.sort_values("Entered_Month")
+
+    # Show preview
     st.subheader("📋 Data Preview")
     st.write(df_all[["Entered_Month"] + [col for col in ["Route", "RouteCode", "RouteName"] if col in df_all.columns] + ["Total Miles", "Total Hours"]].head())
 
-    # Try to identify route column
+    # Detect the best available route column
     route_col = None
     for col in ["Route", "RouteCode", "RouteName"]:
         if col in df_all.columns:
@@ -60,7 +69,7 @@ else:
             break
 
     if not route_col:
-        st.error("⚠️ No 'Route', 'RouteCode', or 'RouteName' column found in the data.")
+        st.error("⚠️ No 'Route', 'RouteCode', or 'RouteName' column found.")
     else:
         # --- Visualization 1: Monthly Total Miles ---
         fig1 = px.line(
@@ -84,7 +93,7 @@ else:
         )
         st.plotly_chart(fig2, use_container_width=True)
 
-        # --- Visualization 3: Top/Bottom 5 Routes by Total Miles ---
+        # --- Top & Bottom 5 Total Miles ---
         st.subheader("🏆 Top 5 and Bottom 5 Routes by Total Miles")
         miles_sum = df_all.groupby(route_col)["Total Miles"].sum().reset_index().sort_values(by="Total Miles", ascending=False)
         top5_miles = miles_sum.head(5)
@@ -96,7 +105,7 @@ else:
         st.plotly_chart(fig3, use_container_width=True)
         st.plotly_chart(fig4, use_container_width=True)
 
-        # --- Visualization 4: Top/Bottom 5 Routes by Total Hours ---
+        # --- Top & Bottom 5 Total Hours ---
         st.subheader("⏱️ Top 5 and Bottom 5 Routes by Total Hours")
         hours_sum = df_all.groupby(route_col)["Total Hours"].sum().reset_index().sort_values(by="Total Hours", ascending=False)
         top5_hours = hours_sum.head(5)
@@ -108,5 +117,6 @@ else:
         st.plotly_chart(fig5, use_container_width=True)
         st.plotly_chart(fig6, use_container_width=True)
 
-        st.success("✅ Dashboard loaded successfully!")
+        st.success("✅ Dashboard loaded with time-sorted trends.")
+
 
