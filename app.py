@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-st.title("🚌 CityBus Dashboard - Yearly & Monthly Route Trends")
+st.title("\U0001F68C CityBus Dashboard - Yearly & Monthly Route Trends")
 st.markdown("Upload monthly data and select a year to view de-cumulated monthly trends by route.")
 
 # Initialize session state
@@ -19,12 +19,10 @@ month_input = st.sidebar.text_input("Enter Month (e.g., February 2023)")
 def process_file(file, entered_month):
     df = pd.read_csv(file)
     df.columns = df.columns.str.strip()
-
     for col in ["Total Miles", "Total Hours"]:
         if col in df.columns:
             df[col] = df[col].replace({',': ''}, regex=True)
             df[col] = pd.to_numeric(df[col], errors="coerce")
-
     df["Entered_Month"] = entered_month
     return df
 
@@ -77,7 +75,7 @@ else:
     if not route_col:
         st.error("⚠️ No route column found ('Route', 'RouteCode', or 'RouteName').")
     else:
-        # ✨ De-cumulate monthly values from Total
+        # De-cumulate monthly values
         df_year = df_year.sort_values(["Entered_Month", route_col])
         df_year["Monthly Miles"] = df_year.groupby(route_col)["Total Miles"].diff().fillna(df_year["Total Miles"])
         df_year["Monthly Hours"] = df_year.groupby(route_col)["Total Hours"].diff().fillna(df_year["Total Hours"])
@@ -85,12 +83,8 @@ else:
         # --- Line Chart: Monthly Miles ---
         miles_trend = df_year.groupby(["Entered_Month", route_col])["Monthly Miles"].sum().reset_index()
         fig1 = px.line(
-            miles_trend,
-            x="Entered_Month",
-            y="Monthly Miles",
-            color=route_col,
-            title=f"📈 Monthly Total Miles by Route ({selected_year})",
-            markers=True
+            miles_trend, x="Entered_Month", y="Monthly Miles", color=route_col,
+            title=f"📈 Monthly Total Miles by Route ({selected_year})", markers=True
         )
         fig1.update_layout(xaxis=dict(type="date"))
         st.plotly_chart(fig1, use_container_width=True)
@@ -98,73 +92,64 @@ else:
         # --- Line Chart: Monthly Hours ---
         hours_trend = df_year.groupby(["Entered_Month", route_col])["Monthly Hours"].sum().reset_index()
         fig2 = px.line(
-            hours_trend,
-            x="Entered_Month",
-            y="Monthly Hours",
-            color=route_col,
-            title=f"📉 Monthly Total Hours by Route ({selected_year})",
-            markers=True
+            hours_trend, x="Entered_Month", y="Monthly Hours", color=route_col,
+            title=f"📉 Monthly Total Hours by Route ({selected_year})", markers=True
         )
         fig2.update_layout(xaxis=dict(type="date"))
         st.plotly_chart(fig2, use_container_width=True)
 
+        # --- ✨ Efficiency Lollipop Chart ---
+        st.subheader(f"⚙️ Route Efficiency (Miles per Hour) - {selected_year}")
 
-# ✅ Lollipop Chart for Efficiency
+        efficiency_df = df_year.groupby(route_col).agg({
+            "Monthly Miles": "sum",
+            "Monthly Hours": "sum"
+        }).reset_index()
 
-st.subheader(f"⚙️ Route Efficiency (Miles per Hour) — {selected_year}")
+        efficiency_df["Efficiency"] = efficiency_df["Monthly Miles"] / efficiency_df["Monthly Hours"]
+        efficiency_df = efficiency_df.replace([float("inf"), -float("inf")], pd.NA).dropna(subset=["Efficiency"])
 
-# Calculate efficiency safely
-efficiency_df = df_year.groupby(route_col).agg({
-    "Monthly Miles": "sum",
-    "Monthly Hours": "sum"
-}).reset_index()
+        top5_eff = efficiency_df.sort_values(by="Efficiency", ascending=False).head(5)
+        bottom5_eff = efficiency_df.sort_values(by="Efficiency", ascending=True).head(5)
 
-efficiency_df["Efficiency"] = efficiency_df["Monthly Miles"] / efficiency_df["Monthly Hours"]
-efficiency_df = efficiency_df.replace([float("inf"), -float("inf")], pd.NA).dropna(subset=["Efficiency"])
+        # Lollipop Top
+        fig_top = go.Figure()
+        for i, row in top5_eff.iterrows():
+            fig_top.add_trace(go.Scatter(
+                x=[0, row["Efficiency"]],
+                y=[row[route_col]] * 2,
+                mode="lines+markers",
+                marker=dict(size=[0, 12], color="green"),
+                line=dict(color="lightgray", width=2),
+                showlegend=False
+            ))
+        fig_top.update_layout(
+            title="🏎️ Top 5 Most Efficient Routes (Lollipop)",
+            xaxis_title="Efficiency (Miles per Hour)",
+            yaxis_title="Route",
+            yaxis=dict(categoryorder="total ascending"),
+            height=400
+        )
+        st.plotly_chart(fig_top, use_container_width=True)
 
-# Check if there's enough data
-if efficiency_df.empty:
-    st.warning("⚠️ No efficiency data available to plot.")
-else:
-    top5_eff = efficiency_df.sort_values(by="Efficiency", ascending=False).head(5)
-    bottom5_eff = efficiency_df.sort_values(by="Efficiency", ascending=True).head(5)
+        # Lollipop Bottom
+        fig_bottom = go.Figure()
+        for i, row in bottom5_eff.iterrows():
+            fig_bottom.add_trace(go.Scatter(
+                x=[0, row["Efficiency"]],
+                y=[row[route_col]] * 2,
+                mode="lines+markers",
+                marker=dict(size=[0, 12], color="red"),
+                line=dict(color="lightgray", width=2),
+                showlegend=False
+            ))
+        fig_bottom.update_layout(
+            title="🐢 Bottom 5 Least Efficient Routes (Lollipop)",
+            xaxis_title="Efficiency (Miles per Hour)",
+            yaxis_title="Route",
+            yaxis=dict(categoryorder="total ascending"),
+            height=400
+        )
+        st.plotly_chart(fig_bottom, use_container_width=True)
 
-    # 🏎️ Top 5 Efficiency - Lollipop Chart
-    fig_top = go.Figure()
-    for i, row in top5_eff.iterrows():
-        fig_top.add_trace(go.Scatter(
-            x=[0, row["Efficiency"]],
-            y=[row[route_col]] * 2,
-            mode="lines+markers",
-            marker=dict(size=[0, 12], color="green"),
-            line=dict(color="lightgray", width=2),
-            showlegend=False
-        ))
-    fig_top.update_layout(
-        title="🏎️ Top 5 Most Efficient Routes (Lollipop)",
-        xaxis_title="Efficiency (Miles per Hour)",
-        yaxis_title="Route",
-        yaxis=dict(categoryorder="total ascending"),
-        height=400
-    )
-    st.plotly_chart(fig_top, use_container_width=True)
-
-    # 🐢 Bottom 5 Efficiency - Lollipop Chart
-    fig_bottom = go.Figure()
-    for i, row in bottom5_eff.iterrows():
-        fig_bottom.add_trace(go.Scatter(
-            x=[0, row["Efficiency"]],
-            y=[row[route_col]] * 2,
-            mode="lines+markers",
-            marker=dict(size=[0, 12], color="red"),
-            line=dict(color="lightgray", width=2),
-            showlegend=False
-        ))
-    fig_bottom.update_layout(
-        title="🐢 Bottom 5 Least Efficient Routes (Lollipop)",
-        xaxis_title="Efficiency (Miles per Hour)",
-        yaxis_title="Route",
-        yaxis=dict(categoryorder="total ascending"),
-        height=400
-    )
-    st.plotly_chart(fig_bottom, use_container_width=True)
+        st.success(f"✅ Showing de-cumulated trends and efficiency charts for {selected_year}")
