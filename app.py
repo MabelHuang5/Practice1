@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 
 st.title("🚌 CityBus Dashboard - Yearly & Monthly Route Trends")
-st.markdown("Upload monthly data and select a year to view trends across routes.")
+st.markdown("Upload monthly data and select a year to view de-cumulated monthly trends by route.")
 
 # Initialize session state
 if "all_data" not in st.session_state:
@@ -61,7 +61,7 @@ else:
     selected_year = st.sidebar.selectbox("📅 Select Year to View", available_years)
 
     # Filter for selected year
-    df_year = df_all[df_all["Entered_Month"].dt.year == selected_year]
+    df_year = df_all[df_all["Entered_Month"].dt.year == selected_year].copy()
 
     # Detect route column
     route_col = None
@@ -76,12 +76,17 @@ else:
     if not route_col:
         st.error("⚠️ No route column found ('Route', 'RouteCode', or 'RouteName').")
     else:
+        # ✨ De-cumulate monthly values from Total
+        df_year = df_year.sort_values(["Entered_Month", route_col])
+        df_year["Monthly Miles"] = df_year.groupby(route_col)["Total Miles"].diff().fillna(df_year["Total Miles"])
+        df_year["Monthly Hours"] = df_year.groupby(route_col)["Total Hours"].diff().fillna(df_year["Total Hours"])
+
         # --- Line Chart: Monthly Miles ---
-        miles_trend = df_year.groupby(["Entered_Month", route_col])["Total Miles"].sum().reset_index()
+        miles_trend = df_year.groupby(["Entered_Month", route_col])["Monthly Miles"].sum().reset_index()
         fig1 = px.line(
             miles_trend,
             x="Entered_Month",
-            y="Total Miles",
+            y="Monthly Miles",
             color=route_col,
             title=f"📈 Monthly Total Miles by Route ({selected_year})",
             markers=True
@@ -90,11 +95,11 @@ else:
         st.plotly_chart(fig1, use_container_width=True)
 
         # --- Line Chart: Monthly Hours ---
-        hours_trend = df_year.groupby(["Entered_Month", route_col])["Total Hours"].sum().reset_index()
+        hours_trend = df_year.groupby(["Entered_Month", route_col])["Monthly Hours"].sum().reset_index()
         fig2 = px.line(
             hours_trend,
             x="Entered_Month",
-            y="Total Hours",
+            y="Monthly Hours",
             color=route_col,
             title=f"📉 Monthly Total Hours by Route ({selected_year})",
             markers=True
@@ -104,24 +109,24 @@ else:
 
         # --- Top & Bottom 5 Total Miles ---
         st.subheader(f"🏆 Top 5 and Bottom 5 Routes by Total Miles ({selected_year})")
-        miles_rank = df_year.groupby(route_col)["Total Miles"].sum().reset_index().sort_values(by="Total Miles", ascending=False)
+        miles_rank = df_year.groupby(route_col)["Monthly Miles"].sum().reset_index().sort_values(by="Monthly Miles", ascending=False)
         top5_miles = miles_rank.head(5)
         bottom5_miles = miles_rank.tail(5)
 
-        fig3 = px.bar(top5_miles, x="Total Miles", y=route_col, orientation="h", title="Top 5 Routes by Total Miles")
-        fig4 = px.bar(bottom5_miles, x="Total Miles", y=route_col, orientation="h", title="Bottom 5 Routes by Total Miles")
+        fig3 = px.bar(top5_miles, x="Monthly Miles", y=route_col, orientation="h", title="Top 5 Routes by Total Miles")
+        fig4 = px.bar(bottom5_miles, x="Monthly Miles", y=route_col, orientation="h", title="Bottom 5 Routes by Total Miles")
         st.plotly_chart(fig3, use_container_width=True)
         st.plotly_chart(fig4, use_container_width=True)
 
         # --- Top & Bottom 5 Total Hours ---
         st.subheader(f"⏱️ Top 5 and Bottom 5 Routes by Total Hours ({selected_year})")
-        hours_rank = df_year.groupby(route_col)["Total Hours"].sum().reset_index().sort_values(by="Total Hours", ascending=False)
+        hours_rank = df_year.groupby(route_col)["Monthly Hours"].sum().reset_index().sort_values(by="Monthly Hours", ascending=False)
         top5_hours = hours_rank.head(5)
         bottom5_hours = hours_rank.tail(5)
 
-        fig5 = px.bar(top5_hours, x="Total Hours", y=route_col, orientation="h", title="Top 5 Routes by Total Hours")
-        fig6 = px.bar(bottom5_hours, x="Total Hours", y=route_col, orientation="h", title="Bottom 5 Routes by Total Hours")
+        fig5 = px.bar(top5_hours, x="Monthly Hours", y=route_col, orientation="h", title="Top 5 Routes by Total Hours")
+        fig6 = px.bar(bottom5_hours, x="Monthly Hours", y=route_col, orientation="h", title="Bottom 5 Routes by Total Hours")
         st.plotly_chart(fig5, use_container_width=True)
         st.plotly_chart(fig6, use_container_width=True)
 
-        st.success(f"✅ Showing monthly and annual trends for {selected_year}")
+        st.success(f"✅ Showing de-cumulated trends for {selected_year}")
