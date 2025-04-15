@@ -32,14 +32,14 @@ if st.sidebar.button("Add Data"):
         for file in uploaded_files:
             new_df = process_file(file, month_input)
             st.session_state["all_data"] = pd.concat([st.session_state["all_data"], new_df], ignore_index=True)
-        st.sidebar.success("✅ Data added!")
+        st.sidebar.success(" Data added!")
     else:
-        st.sidebar.warning("⚠️ Upload files and enter month first.")
+        st.sidebar.warning(" Upload files and enter month first.")
 
 # Clear Data
 if st.sidebar.button("Clear All Data"):
     st.session_state["all_data"] = pd.DataFrame()
-    st.sidebar.success("🗑️ All data cleared.")
+    st.sidebar.success("All data cleared.")
 
 # Use the data
 df_all = st.session_state["all_data"]
@@ -50,7 +50,7 @@ else:
     try:
         df_all["Entered_Month"] = pd.to_datetime(df_all["Entered_Month"], format="%B %Y")
     except:
-        st.warning("⚠️ Check date format (e.g., 'March 2023')")
+        st.warning("Check date format (e.g., 'March 2023')")
 
     df_all = df_all.sort_values("Entered_Month")
 
@@ -69,7 +69,7 @@ else:
     st.write(df_year[["Entered_Month", route_col, "Total Miles", "Total Hours"]].head())
 
     if not route_col:
-        st.error("⚠️ No route column found ('Route', 'RouteCode', or 'RouteName').")
+        st.error(" No route column found ('Route', 'RouteCode', or 'RouteName').")
     else:
         df_year = df_year.sort_values(["Entered_Month", route_col])
 
@@ -96,15 +96,24 @@ else:
         st.plotly_chart(fig2, use_container_width=True)
 
         # --- ✨ Efficiency Lollipop Chart ---
-        st.subheader(f"⚙️ Route Efficiency (Miles per Hour) - {selected_year}")
+        st.subheader(f"Route Efficiency (Miles per Hour) - {selected_year}")
 
         efficiency_df = df_year.groupby(route_col).agg({
             "Monthly Miles": "sum",
             "Monthly Hours": "sum"
         }).reset_index()
 
+        # Filter valid rows only
+        efficiency_df = efficiency_df[
+            (efficiency_df["Monthly Hours"] > 0) &
+            (efficiency_df["Monthly Miles"] > 0)
+        ]
+
         efficiency_df["Efficiency"] = efficiency_df["Monthly Miles"] / efficiency_df["Monthly Hours"]
         efficiency_df = efficiency_df.replace([float("inf"), -float("inf")], pd.NA).dropna(subset=["Efficiency"])
+
+        st.write(" Cleaned Efficiency Data (Top 10):")
+        st.dataframe(efficiency_df.sort_values(by="Efficiency", ascending=False).head(10))
 
         top5_eff = efficiency_df.sort_values(by="Efficiency", ascending=False).head(5)
         bottom5_eff = efficiency_df.sort_values(by="Efficiency", ascending=True).head(5)
@@ -121,7 +130,7 @@ else:
                 showlegend=False
             ))
         fig_top.update_layout(
-            title="🏎️ Top 5 Most Efficient Routes (Lollipop)",
+            title="🏎 Top 5 Most Efficient Routes (Lollipop)",
             xaxis_title="Efficiency (Miles per Hour)",
             yaxis_title="Route",
             yaxis=dict(categoryorder="total ascending"),
@@ -149,4 +158,4 @@ else:
         )
         st.plotly_chart(fig_bottom, use_container_width=True)
 
-        st.success(f"✅ Showing monthly trends and efficiency charts for {selected_year}")
+        st.success(f"Showing monthly trends and efficiency charts for {selected_year}")
