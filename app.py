@@ -107,36 +107,70 @@ else:
         fig2.update_layout(xaxis=dict(type="date"))
         st.plotly_chart(fig2, use_container_width=True)
 
-                # --- ✨ Efficiency: Miles per Hour ---
-        st.subheader(f"⚙️ Efficiency by Route: Miles per Hour ({selected_year})")
+import plotly.graph_objects as go
 
-        # Calculate efficiency per route
-        efficiency_df = df_year.groupby(route_col).agg({
-            "Monthly Miles": "sum",
-            "Monthly Hours": "sum"
-        }).reset_index()
+# --- ✨ Efficiency: Miles per Hour ---
+st.subheader(f"⚙️ Route Efficiency (Miles per Hour) — {selected_year}")
 
-        efficiency_df["Efficiency"] = efficiency_df["Monthly Miles"] / efficiency_df["Monthly Hours"]
-        efficiency_df = efficiency_df.dropna(subset=["Efficiency"]).replace([float("inf"), -float("inf")], pd.NA).dropna()
+# Calculate efficiency
+efficiency_df = df_year.groupby(route_col).agg({
+    "Monthly Miles": "sum",
+    "Monthly Hours": "sum"
+}).reset_index()
 
-        top5_eff = efficiency_df.sort_values(by="Efficiency", ascending=False).head(5)
-        bottom5_eff = efficiency_df.sort_values(by="Efficiency", ascending=True).head(5)
+efficiency_df["Efficiency"] = efficiency_df["Monthly Miles"] / efficiency_df["Monthly Hours"]
+efficiency_df = efficiency_df.replace([float("inf"), -float("inf")], pd.NA).dropna()
 
-        fig_eff_top = px.bar(
-            top5_eff,
-            x="Efficiency",
-            y=route_col,
-            orientation="h",
-            title="🏎️ Top 5 Most Efficient Routes (Miles per Hour)"
-        )
+# Top 5 and Bottom 5 efficient routes
+top5_eff = efficiency_df.sort_values(by="Efficiency", ascending=False).head(5)
+bottom5_eff = efficiency_df.sort_values(by="Efficiency", ascending=True).head(5)
 
-        fig_eff_bottom = px.bar(
-            bottom5_eff,
-            x="Efficiency",
-            y=route_col,
-            orientation="h",
-            title="🐢 Bottom 5 Least Efficient Routes (Miles per Hour)"
-        )
+# --- Lollipop Chart: Top 5 Efficient Routes ---
+fig_top = go.Figure()
+fig_top.add_trace(go.Scatter(
+    x=top5_eff["Efficiency"],
+    y=top5_eff[route_col],
+    mode='markers',
+    marker=dict(size=12, color="green"),
+    name="Efficiency"
+))
+fig_top.add_trace(go.Scatter(
+    x=top5_eff["Efficiency"],
+    y=top5_eff[route_col],
+    mode='lines',
+    line=dict(color="lightgray", width=2),
+    showlegend=False
+))
+fig_top.update_layout(
+    title="🏎️ Top 5 Most Efficient Routes (Lollipop)",
+    xaxis_title="Miles per Hour",
+    yaxis_title="Route",
+    yaxis=dict(categoryorder="total ascending"),
+    height=400
+)
+st.plotly_chart(fig_top, use_container_width=True)
 
-        st.plotly_chart(fig_eff_top, use_container_width=True)
-        st.plotly_chart(fig_eff_bottom, use_container_width=True)
+# --- Lollipop Chart: Bottom 5 Efficient Routes ---
+fig_bottom = go.Figure()
+fig_bottom.add_trace(go.Scatter(
+    x=bottom5_eff["Efficiency"],
+    y=bottom5_eff[route_col],
+    mode='markers',
+    marker=dict(size=12, color="red"),
+    name="Efficiency"
+))
+fig_bottom.add_trace(go.Scatter(
+    x=bottom5_eff["Efficiency"],
+    y=bottom5_eff[route_col],
+    mode='lines',
+    line=dict(color="lightgray", width=2),
+    showlegend=False
+))
+fig_bottom.update_layout(
+    title="🐢 Bottom 5 Least Efficient Routes (Lollipop)",
+    xaxis_title="Miles per Hour",
+    yaxis_title="Route",
+    yaxis=dict(categoryorder="total ascending"),
+    height=400
+)
+st.plotly_chart(fig_bottom, use_container_width=True)
