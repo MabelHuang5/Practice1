@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 st.title("🚌 CityBus Dashboard - Yearly & Monthly Route Trends")
 st.markdown("Upload monthly data and select a year to view de-cumulated monthly trends by route.")
@@ -107,7 +108,6 @@ else:
         fig2.update_layout(xaxis=dict(type="date"))
         st.plotly_chart(fig2, use_container_width=True)
 
-import plotly.graph_objects as go
 
 # --- ✨ Efficiency: Miles per Hour ---
 st.subheader(f"⚙️ Route Efficiency (Miles per Hour) — {selected_year}")
