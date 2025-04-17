@@ -64,29 +64,45 @@ else:
 
     passengers_by_route = df_all.groupby("RouteName")["Passengers"].sum().reset_index()
     fig1 = px.bar(passengers_by_route, x="Passengers", y="RouteName", orientation="h",
-                  title="Total Passengers per Route")
+                  title="Total Passengers per Route",
+                  labels={"Passengers": "Number of Passengers", "RouteName": "Route"})
     st.plotly_chart(fig1, use_container_width=True)
 
     revenue_by_route = df_all.groupby("RouteName")["Revenue"].sum().reset_index()
     fig2 = px.bar(revenue_by_route, x="Revenue", y="RouteName", orientation="h",
-                  title="Total Revenue per Route", color="Revenue", color_continuous_scale="Viridis")
+                  title="Total Revenue per Route",
+                  labels={"Revenue": "Revenue ($)", "RouteName": "Route"},
+                  color="Revenue",
+                  color_continuous_scale="Viridis")
     st.plotly_chart(fig2, use_container_width=True)
 
     if "Total Miles" in df_all.columns:
         efficiency_mile = df_all.groupby("RouteName").apply(
             lambda x: x["Passengers"].sum() / x["Total Miles"].sum() if x["Total Miles"].sum() > 0 else 0
         ).reset_index(name="Passengers per Mile")
-        fig3 = px.bar(efficiency_mile, x="Passengers per Mile", y="RouteName", orientation="h",
-                      title="Efficiency: Passengers per Mile")
+        fig3 = px.bar(efficiency_mile,
+                      x="Passengers per Mile",
+                      y="RouteName",
+                      orientation="h",
+                      title="Efficiency: Passengers per Mile",
+                      labels={"Passengers per Mile": "Passengers per Mile", "RouteName": "Route"})
         st.plotly_chart(fig3, use_container_width=True)
+    else:
+        st.warning("Column 'Total Miles' not available for Passengers per Mile calculation.")
 
     if "Total Hours" in df_all.columns:
         efficiency_hour = df_all.groupby("RouteName").apply(
             lambda x: x["Passengers"].sum() / x["Total Hours"].sum() if x["Total Hours"].sum() > 0 else 0
         ).reset_index(name="Passengers per Hour")
-        fig4 = px.bar(efficiency_hour, x="Passengers per Hour", y="RouteName", orientation="h",
-                      title="Efficiency: Passengers per Hour")
+        fig4 = px.bar(efficiency_hour,
+                      x="Passengers per Hour",
+                      y="RouteName",
+                      orientation="h",
+                      title="Efficiency: Passengers per Hour",
+                      labels={"Passengers per Hour": "Passengers per Hour", "RouteName": "Route"})
         st.plotly_chart(fig4, use_container_width=True)
+    else:
+        st.warning("Column 'Total Hours' not available for Passengers per Hour calculation.")
 
     if "Entered_Month" in df_all.columns:
         df_all["Parsed_Month"] = pd.to_datetime(df_all["Entered_Month"], format="%B %Y", errors="coerce")
@@ -94,72 +110,79 @@ else:
             st.warning("Some 'Entered_Month' values couldn't be parsed (e.g., not in 'March 2023' format).")
 
         df_all = df_all.dropna(subset=["Parsed_Month"]).copy()
+
         monthly_trend = df_all.groupby("Parsed_Month")["Passengers"].sum().reset_index()
-        fig5 = px.line(monthly_trend, x="Parsed_Month", y="Passengers",
-                       title="Monthly Passenger Trend", markers=True)
+        fig5 = px.line(monthly_trend,
+                       x="Parsed_Month",
+                       y="Passengers",
+                       title="Monthly Passenger Trend",
+                       markers=True,
+                       labels={"Parsed_Month": "Month", "Passengers": "Total Passengers"})
         st.plotly_chart(fig5, use_container_width=True)
 
-        fig6 = px.scatter(df_all, x="Passengers", y="Revenue", color="RouteName",
-                          title="Revenue vs. Passengers")
-        st.plotly_chart(fig6, use_container_width=True)
+    fig6 = px.scatter(df_all,
+                      x="Passengers",
+                      y="Revenue",
+                      color="RouteName",
+                      title="Revenue vs. Passengers",
+                      labels={"Passengers": "Passengers", "Revenue": "Revenue ($)"})
+    st.plotly_chart(fig6, use_container_width=True)
 
-        st.markdown("---")
-        st.header("📊 Monthly Route Trends and Efficiency Insights")
+    # ==================== New Graphs for Total Miles, Hours, Efficiency =====================
+    st.markdown("---")
+    st.header("📊 Additional Monthly Route Trends")
 
-        df_all = df_all.sort_values("Parsed_Month")
-        available_years = sorted(df_all["Parsed_Month"].dt.year.unique())
+    available_years = sorted(df_all["Parsed_Month"].dt.year.unique())
+    if available_years:
+        selected_year = st.selectbox("Select Year", available_years)
+        df_year = df_all[df_all["Parsed_Month"].dt.year == selected_year].copy()
 
-        if available_years:
-            selected_year = st.selectbox("🗓 Select Year to View", available_years)
-            df_year = df_all[df_all["Parsed_Month"].dt.year == selected_year].copy()
+        if not df_year.empty:
+            df_year = df_year.sort_values(["Parsed_Month", "RouteName"])
+            df_year["Monthly Miles"] = df_year.groupby("RouteName")["Total Miles"].diff().fillna(df_year["Total Miles"])
+            df_year["Monthly Hours"] = df_year.groupby("RouteName")["Total Hours"].diff().fillna(df_year["Total Hours"])
 
-            if not df_year.empty:
-                df_year = df_year.sort_values(["Parsed_Month", "RouteName"])
-                df_year["Monthly Miles"] = df_year.groupby("RouteName")["Total Miles"].diff().fillna(df_year["Total Miles"])
-                df_year["Monthly Hours"] = df_year.groupby("RouteName")["Total Hours"].diff().fillna(df_year["Total Hours"])
+            miles_trend = df_year.groupby(["Parsed_Month", "RouteName"])["Monthly Miles"].sum().reset_index()
+            fig7 = px.line(miles_trend, x="Parsed_Month", y="Monthly Miles", color="RouteName",
+                           title=f"📈 Monthly Miles by Route ({selected_year})", markers=True)
+            st.plotly_chart(fig7, use_container_width=True)
 
-                miles_trend = df_year.groupby(["Parsed_Month", "RouteName"])["Monthly Miles"].sum().reset_index()
-                fig7 = px.line(miles_trend, x="Parsed_Month", y="Monthly Miles", color="RouteName",
-                               title=f"📈 Monthly Miles by Route ({selected_year})", markers=True)
-                st.plotly_chart(fig7, use_container_width=True)
+            hours_trend = df_year.groupby(["Parsed_Month", "RouteName"])["Monthly Hours"].sum().reset_index()
+            fig8 = px.line(hours_trend, x="Parsed_Month", y="Monthly Hours", color="RouteName",
+                           title=f"📉 Monthly Hours by Route ({selected_year})", markers=True)
+            st.plotly_chart(fig8, use_container_width=True)
 
-                hours_trend = df_year.groupby(["Parsed_Month", "RouteName"])["Monthly Hours"].sum().reset_index()
-                fig8 = px.line(hours_trend, x="Parsed_Month", y="Monthly Hours", color="RouteName",
-                               title=f"📉 Monthly Hours by Route ({selected_year})", markers=True)
-                st.plotly_chart(fig8, use_container_width=True)
+            eff_df = df_year.groupby("RouteName").agg({
+                "Monthly Miles": "sum",
+                "Monthly Hours": "sum"
+            }).reset_index()
+            eff_df = eff_df[(eff_df["Monthly Hours"] > 0) & (eff_df["Monthly Miles"] > 0)]
+            eff_df["Efficiency"] = eff_df["Monthly Miles"] / eff_df["Monthly Hours"]
 
-                st.subheader(f"Route Efficiency (Miles per Hour) - {selected_year}")
-                eff_df = df_year.groupby("RouteName").agg({
-                    "Monthly Miles": "sum",
-                    "Monthly Hours": "sum"
-                }).reset_index()
-                eff_df = eff_df[(eff_df["Monthly Hours"] > 0) & (eff_df["Monthly Miles"] > 0)]
-                eff_df["Efficiency"] = eff_df["Monthly Miles"] / eff_df["Monthly Hours"]
+            top5 = eff_df.sort_values("Efficiency", ascending=False).head(5)
+            bottom5 = eff_df.sort_values("Efficiency", ascending=True).head(5)
 
-                top5 = eff_df.sort_values("Efficiency", ascending=False).head(5)
-                bottom5 = eff_df.sort_values("Efficiency", ascending=True).head(5)
+            def create_lollipop(data, title, color):
+                fig = go.Figure()
+                for _, row in data.iterrows():
+                    fig.add_trace(go.Scatter(
+                        x=[0, row["Efficiency"]],
+                        y=[row["RouteName"]] * 2,
+                        mode="lines+markers",
+                        marker=dict(size=[0, 12], color=color),
+                        line=dict(color="lightgray", width=2),
+                        showlegend=False
+                    ))
+                fig.update_layout(
+                    title=title,
+                    xaxis_title="Efficiency (Miles per Hour)",
+                    yaxis_title="Route",
+                    yaxis=dict(categoryorder="total ascending"),
+                    height=400
+                )
+                return fig
 
-                def create_lollipop(data, title, color):
-                    fig = go.Figure()
-                    for _, row in data.iterrows():
-                        fig.add_trace(go.Scatter(
-                            x=[0, row["Efficiency"]],
-                            y=[row["RouteName"]] * 2,
-                            mode="lines+markers",
-                            marker=dict(size=[0, 12], color=color),
-                            line=dict(color="lightgray", width=2),
-                            showlegend=False
-                        ))
-                    fig.update_layout(
-                        title=title,
-                        xaxis_title="Efficiency (Miles per Hour)",
-                        yaxis_title="Route",
-                        yaxis=dict(categoryorder="total ascending"),
-                        height=400
-                    )
-                    return fig
+            st.plotly_chart(create_lollipop(top5, "🏎 Top 5 Most Efficient Routes", "green"), use_container_width=True)
+            st.plotly_chart(create_lollipop(bottom5, "🐢 Bottom 5 Least Efficient Routes", "red"), use_container_width=True)
 
-                st.plotly_chart(create_lollipop(top5, "🏎 Top 5 Most Efficient Routes", "green"), use_container_width=True)
-                st.plotly_chart(create_lollipop(bottom5, "🐢 Bottom 5 Least Efficient Routes", "red"), use_container_width=True)
-
-                st.success(f"Advanced charts displayed for {selected_year}")
+    st.success("Dashboard updated with all visualizations!")
