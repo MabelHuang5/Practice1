@@ -73,7 +73,7 @@ else:
             route_col = col
             break
 
-    st.subheader(f"\ud83d\udccb Preview: {selected_year}")
+    st.subheader(f"Preview: {selected_year}")
     st.write(df_year[["Entered_Month", route_col, "Total Miles", "Total Hours"]].head())
 
     if not route_col:
@@ -84,12 +84,7 @@ else:
         df_year["Monthly Hours"] = df_year.groupby(route_col)["Total Hours"].diff().fillna(df_year["Total Hours"])
 
         miles_trend = df_year.groupby(["Entered_Month", route_col])["Monthly Miles"].sum().reset_index()
-        fig1 = px.line(miles_trend, x="Entered_Month", y="Monthly Miles", color=route_col, title=f"\ud83d\udcc8 Monthly Total Miles by Route ({selected_year})", markers=True)
-        fig1.update_layout(xaxis=dict(type="date"))
-        st.plotly_chart(fig1, use_container_width=True)
-
-        hours_trend = df_year.groupby(["Entered_Month", route_col])["Monthly Hours"].sum().reset_index()
-        fig2 = px.line(hours_trend, x="Entered_Month", y="Monthly Hours", color=route_col, title=f"\ud83d\udcc9 Monthly Total Hours by Route ({selected_year})", markers=True)
+        fig1 = px.line(miles_trend, x="Entered_Month", y="Monthly Miles", color=route_col, title=f"Monthly Total Hours by Route ({selected_year})", markers=True)
         fig2.update_layout(xaxis=dict(type="date"))
         st.plotly_chart(fig2, use_container_width=True)
 
@@ -107,13 +102,7 @@ else:
         fig_top = go.Figure()
         for _, row in top5_eff.iterrows():
             fig_top.add_trace(go.Scatter(x=[0, row["Efficiency"]], y=[row[route_col]] * 2, mode="lines+markers", marker=dict(size=[0, 12], color="green"), line=dict(color="lightgray", width=2), showlegend=False))
-        fig_top.update_layout(title="\ud83c\udfce Top 5 Most Efficient Routes (Lollipop)", xaxis_title="Efficiency (Miles per Hour)", yaxis_title="Route", yaxis=dict(categoryorder="total ascending"), height=400)
-        st.plotly_chart(fig_top, use_container_width=True)
-
-        fig_bottom = go.Figure()
-        for _, row in bottom5_eff.iterrows():
-            fig_bottom.add_trace(go.Scatter(x=[0, row["Efficiency"]], y=[row[route_col]] * 2, mode="lines+markers", marker=dict(size=[0, 12], color="red"), line=dict(color="lightgray", width=2), showlegend=False))
-        fig_bottom.update_layout(title="\ud83d\udc22 Bottom 5 Least Efficient Routes (Lollipop)", xaxis_title="Efficiency (Miles per Hour)", yaxis_title="Route", yaxis=dict(categoryorder="total ascending"), height=400)
+        fig_top.update_layout(title="Bottom 5 Least Efficient Routes (Lollipop)", xaxis_title="Efficiency (Miles per Hour)", yaxis_title="Route", yaxis=dict(categoryorder="total ascending"), height=400)
         st.plotly_chart(fig_bottom, use_container_width=True)
 
         st.success(f"Showing monthly trends and efficiency charts for {selected_year}")
