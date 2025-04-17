@@ -63,7 +63,7 @@ else:
     df_all = df_all.sort_values("Entered_Month")
 
     available_years = sorted(df_all["Entered_Month"].dt.year.dropna().unique())
-    selected_year = st.sidebar.selectbox("\ud83d\uddd5 Select Year to View", available_years)
+    selected_year = st.sidebar.selectbox("Select Year to View", available_years)
 
     df_year = df_all[df_all["Entered_Month"].dt.year == selected_year].copy()
 
